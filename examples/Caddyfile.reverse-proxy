@@ -1,0 +1,49 @@
+# Caddyfile for reverse proxy with Route53
+#
+# Common use case: Proxy requests to backend services
+# with automatic HTTPS via Route53 DNS challenge.
+
+# Main application
+app.example.com {
+    tls {
+        dns route53
+    }
+
+    # Reverse proxy to backend service
+    reverse_proxy backend:8080 {
+        # Health check
+        health_uri /health
+        health_interval 10s
+        health_timeout 5s
+
+        # Headers
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Access logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+# API endpoint
+api.example.com {
+    tls {
+        dns route53
+    }
+
+    # Enable CORS
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization"
+        respond 204
+    }
+
+    reverse_proxy api-service:3000
+}

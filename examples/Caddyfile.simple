@@ -1,0 +1,18 @@
+# Simple Caddyfile with Route53 DNS challenge
+#
+# This is the most basic configuration for a single domain
+# using Route53 for DNS-01 ACME challenge.
+#
+# Requirements:
+# - Domain DNS is hosted on AWS Route53
+# - AWS credentials with Route53 permissions (see .env.example)
+
+example.com {
+    # Enable TLS with Route53 DNS challenge
+    tls {
+        dns route53
+    }
+
+    # Simple response
+    respond "Hello from Caddy with Route53!"
+}

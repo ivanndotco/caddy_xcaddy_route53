@@ -1,0 +1,70 @@
+name: Check for Caddy Updates
+
+on:
+  schedule:
+    # Check for updates every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest Caddy version
+        id: caddy
+        run: |
+          # Get latest Caddy release from GitHub
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r '.tag_name')
+          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Caddy version: $LATEST_VERSION"
+
+      - name: Get current version from file
+        id: current
+        run: |
+          if [ -f VERSION ]; then
+            CURRENT_VERSION=$(cat VERSION)
+          else
+            CURRENT_VERSION="none"
+          fi
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current tracked version: $CURRENT_VERSION"
+
+      - name: Compare versions
+        id: compare
+        run: |
+          echo "Version Comparison:"
+          echo "  Current: ${{ steps.current.outputs.current }}"
+          echo "  Latest:  ${{ steps.caddy.outputs.latest }}"
+          echo ""
+          if [ "${{ steps.caddy.outputs.latest }}" != "${{ steps.current.outputs.current }}" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "✅ New version detected: ${{ steps.caddy.outputs.latest }}"
+            echo "   Will update and trigger build"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Already on latest version"
+          fi
+
+      - name: Update version file
+        if: steps.compare.outputs.update_needed == 'true'
+        run: |
+          echo "${{ steps.caddy.outputs.latest }}" > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "Update Caddy version to ${{ steps.caddy.outputs.latest }}"
+          git push
+
+      - name: Trigger Docker build
+        if: steps.compare.outputs.update_needed == 'true'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: caddy-update
+          client-payload: '{"version": "${{ steps.caddy.outputs.latest }}"}'
