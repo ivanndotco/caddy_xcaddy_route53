@@ -18,7 +18,7 @@ Docker image with Caddy web server and Route53 DNS plugin for automatic HTTPS vi
 - **Latest Caddy**: Automatically updated when new versions are released
 - **AWS Route53 Plugin**: For ACME DNS-01 challenges (perfect for wildcard certificates)
 - **Multi-platform**: AMD64 and ARM64 support
-- **Fully Automated**: CI/CD pipeline checks for Caddy updates every 6 hours
+- **Fully Automated**: CI/CD pipeline checks for Caddy updates weekly
 - **Production Ready**: Optimized for security and performance
 
 ## Quick Start
@@ -322,7 +322,7 @@ RUN xcaddy build \
 ### Configure CI/CD
 
 The repository includes GitHub Actions workflows that:
-- Check for Caddy updates every 6 hours
+- Check for Caddy updates weekly
 - Build multi-platform images
 - Push to Docker Hub
 

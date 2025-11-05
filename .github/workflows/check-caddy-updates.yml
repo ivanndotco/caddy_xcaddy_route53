@@ -2,8 +2,8 @@ name: Check for Caddy Updates
 
 on:
   schedule:
-    # Check for updates every 6 hours
-    - cron: "0 */6 * * *"
+    # Check for updates once per week (every Monday at 2 AM UTC)
+    - cron: "0 2 * * 1"
   workflow_dispatch:
 
 jobs:
