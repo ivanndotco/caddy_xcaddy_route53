@@ -25,7 +25,8 @@ Docker image with Caddy web server and Route53 DNS plugin for automatic HTTPS vi
 - **Latest Caddy**: Automatically updated when new versions are released
 - **AWS Route53 Plugin**: For ACME DNS-01 challenges (perfect for wildcard certificates)
 - **Multi-platform**: AMD64 and ARM64 support
-- **Fully Automated**: CI/CD pipeline checks for Caddy updates weekly
+- **Fully Automated**: CI/CD pipeline checks for Caddy AND Route53 plugin updates weekly
+- **Version Pinning**: Each image tag reflects exact versions of Caddy and Route53 plugin used
 - **Production Ready**: Optimized for security and performance
 
 ## Quick Start
@@ -61,9 +62,17 @@ See [examples/](examples/) for ready-to-use configurations.
 
 ## Available Tags
 
+### Recommended (Full Version Info)
+- `caddy-2.10.2-route53-1.6.0` - **Pinned versions** (Caddy 2.10.2 + Route53 1.6.0)
+- `c2.10.2-r1.6.0` - **Short format** (same as above)
+
+### Traditional Tags
 - `latest` - Always the most recent build
-- `v2.8.4` - Specific Caddy version
-- `caddy-v2.8.4` - Alternative version format
+- `2.10.2` - Specific Caddy version (with latest Route53 plugin at build time)
+- `v2.10.2` - Same with 'v' prefix
+- `caddy-v2.10.2` - Alternative format
+
+**Recommendation:** Use the full version tags (e.g., `caddy-2.10.2-route53-1.6.0`) for production to ensure reproducible deployments with pinned plugin versions.
 
 ## Example Caddyfile
 
@@ -313,6 +322,56 @@ docker-compose exec caddy caddy validate --config /etc/caddy/Caddyfile
 - ✅ Configure health checks for backends
 - ✅ Use connection pooling
 
+## Version Tracking & Automation
+
+This repository uses a fully automated version tracking system:
+
+### How It Works
+
+1. **Weekly Checks**: GitHub Actions checks for new Caddy and Route53 plugin releases every Monday at 2 AM UTC
+2. **Version Detection**: Compares current versions (stored in `versions.json`) with latest GitHub releases
+3. **Automatic Updates**: If either component has a new version:
+   - Updates `versions.json` automatically
+   - Triggers a new Docker build
+   - Pushes images with updated version tags
+4. **Zero Manual Intervention**: Everything happens automatically - no repo updates needed!
+
+### Version File (`versions.json`)
+
+```json
+{
+  "caddy": "v2.10.2",
+  "route53": "v1.6.0",
+  "last_checked": "2025-11-05T12:00:00Z",
+  "changed": ["caddy"]
+}
+```
+
+This file is the source of truth for which versions are built into each Docker image.
+
+### Tag Format Explained
+
+**Full version tag:** `caddy-2.10.2-route53-1.6.0`
+- Caddy web server version: `2.10.2`
+- Route53 DNS plugin version: `1.6.0`
+- **Use this for production!** It guarantees exact versions for reproducible builds.
+
+**Short version tag:** `c2.10.2-r1.6.0`
+- Same versions, compact format
+- Useful when space is limited
+
+**Traditional tags:** `latest`, `2.10.2`, `v2.10.2`
+- Backward compatible with old deployments
+- Caddy version is pinned, but Route53 plugin version is whatever was latest at build time
+
+### Why This Matters
+
+Using full version tags (`caddy-X.X.X-route53-Y.Y.Y`) ensures:
+- ✅ **Reproducible builds**: Exact same versions every time
+- ✅ **Audit trail**: Know exactly what's in your container
+- ✅ **Easy rollback**: Pin to known-good version combinations
+- ✅ **No surprises**: Plugin updates won't break your setup unexpectedly
+
 ## Building Your Own
 
 Want to customize? Fork this repository and modify:
@@ -322,17 +381,31 @@ Want to customize? Fork this repository and modify:
 Edit `Dockerfile`:
 ```dockerfile
 RUN xcaddy build \
-    --with github.com/caddy-dns/route53 \
+    --with github.com/caddy-dns/route53${ROUTE53_VERSION:+@$ROUTE53_VERSION} \
     --with github.com/caddy-dns/cloudflare \
     --with your-custom-plugin
+```
+
+### Build with Specific Versions
+
+```bash
+# Build with specific Caddy and Route53 versions
+docker build \
+  --build-arg CADDY_VERSION=2.10.2 \
+  --build-arg ROUTE53_VERSION=v1.6.0 \
+  -t my-caddy:custom .
+
+# Build with latest versions (default)
+docker build -t my-caddy:latest .
 ```
 
 ### Configure CI/CD
 
 The repository includes GitHub Actions workflows that:
-- Check for Caddy updates weekly
-- Build multi-platform images
-- Push to Docker Hub
+- Check for Caddy AND Route53 plugin updates weekly
+- Build multi-platform images (AMD64, ARM64)
+- Push to Docker Hub with version-pinned tags
+- Fully automated - no manual intervention needed
 
 See [CONFIG.md](CONFIG.md) for setup instructions.
 

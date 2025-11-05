@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     # Allow manual triggers
   repository_dispatch:
-    types: [caddy-update]
+    types: [version-update]
 
 env:
   REGISTRY: docker.io
@@ -36,20 +36,29 @@ jobs:
           echo "  Repository: ${{ env.DOCKERHUB_REPO }}"
           echo "  Full image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKERHUB_REPO }}"
 
-      - name: Get Caddy version
-        id: caddy_version
+      - name: Get versions from versions.json
+        id: versions
         run: |
-          if [ -f VERSION ]; then
-            CADDY_VERSION=$(cat VERSION)
+          if [ -f versions.json ]; then
+            CADDY_VERSION=$(jq -r '.caddy' versions.json)
+            ROUTE53_VERSION=$(jq -r '.route53' versions.json)
           else
             CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r '.tag_name')
+            ROUTE53_VERSION=$(curl -s https://api.github.com/repos/caddy-dns/route53/releases/latest | jq -r '.tag_name')
           fi
-          # Remove 'v' prefix if present (e.g., v2.8.4 -> 2.8.4)
-          CADDY_VERSION_CLEAN=${CADDY_VERSION#v}
 
-          echo "version=$CADDY_VERSION" >> $GITHUB_OUTPUT
-          echo "version_clean=$CADDY_VERSION_CLEAN" >> $GITHUB_OUTPUT
-          echo "Building with Caddy version: $CADDY_VERSION (Docker tag: $CADDY_VERSION_CLEAN)"
+          # Remove 'v' prefix for clean versions (e.g., v2.8.4 -> 2.8.4)
+          CADDY_CLEAN=${CADDY_VERSION#v}
+          ROUTE53_CLEAN=${ROUTE53_VERSION#v}
+
+          echo "caddy=$CADDY_VERSION" >> $GITHUB_OUTPUT
+          echo "caddy_clean=$CADDY_CLEAN" >> $GITHUB_OUTPUT
+          echo "route53=$ROUTE53_VERSION" >> $GITHUB_OUTPUT
+          echo "route53_clean=$ROUTE53_CLEAN" >> $GITHUB_OUTPUT
+
+          echo "Building with:"
+          echo "  Caddy: $CADDY_VERSION (tag: $CADDY_CLEAN)"
+          echo "  Route53: $ROUTE53_VERSION (tag: $ROUTE53_CLEAN)"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -73,8 +82,11 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.caddy_version.outputs.version }},enable={{is_default_branch}}
-            type=raw,value=caddy-${{ steps.caddy_version.outputs.version }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.versions.outputs.caddy_clean }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.versions.outputs.caddy }},enable={{is_default_branch}}
+            type=raw,value=caddy-${{ steps.versions.outputs.caddy }},enable={{is_default_branch}}
+            type=raw,value=caddy-${{ steps.versions.outputs.caddy_clean }}-route53-${{ steps.versions.outputs.route53_clean }},enable={{is_default_branch}}
+            type=raw,value=c${{ steps.versions.outputs.caddy_clean }}-r${{ steps.versions.outputs.route53_clean }},enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -88,4 +100,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            CADDY_VERSION=${{ steps.caddy_version.outputs.version_clean }}
+            CADDY_VERSION=${{ steps.versions.outputs.caddy_clean }}
+            ROUTE53_VERSION=${{ steps.versions.outputs.route53 }}

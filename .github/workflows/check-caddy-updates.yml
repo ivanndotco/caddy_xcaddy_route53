@@ -1,4 +1,4 @@
-name: Check for Caddy Updates
+name: Check for Caddy and Plugin Updates
 
 on:
   schedule:
@@ -16,49 +16,83 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get latest Caddy version
-        id: caddy
+      - name: Get latest versions from GitHub
+        id: latest
         run: |
           # Get latest Caddy release from GitHub
-          LATEST_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r '.tag_name')
-          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
-          echo "Latest Caddy version: $LATEST_VERSION"
+          CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r '.tag_name')
+          echo "caddy=$CADDY_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Caddy version: $CADDY_VERSION"
 
-      - name: Get current version from file
+          # Get latest Route53 plugin release from GitHub
+          ROUTE53_VERSION=$(curl -s https://api.github.com/repos/caddy-dns/route53/releases/latest | jq -r '.tag_name')
+          echo "route53=$ROUTE53_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Route53 plugin version: $ROUTE53_VERSION"
+
+      - name: Get current versions from file
         id: current
         run: |
-          if [ -f VERSION ]; then
-            CURRENT_VERSION=$(cat VERSION)
+          if [ -f versions.json ]; then
+            CURRENT_CADDY=$(jq -r '.caddy' versions.json)
+            CURRENT_ROUTE53=$(jq -r '.route53' versions.json)
           else
-            CURRENT_VERSION="none"
+            CURRENT_CADDY="none"
+            CURRENT_ROUTE53="none"
           fi
-          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Current tracked version: $CURRENT_VERSION"
+          echo "caddy=$CURRENT_CADDY" >> $GITHUB_OUTPUT
+          echo "route53=$CURRENT_ROUTE53" >> $GITHUB_OUTPUT
+          echo "Current Caddy version: $CURRENT_CADDY"
+          echo "Current Route53 version: $CURRENT_ROUTE53"
 
       - name: Compare versions
         id: compare
         run: |
           echo "Version Comparison:"
-          echo "  Current: ${{ steps.current.outputs.current }}"
-          echo "  Latest:  ${{ steps.caddy.outputs.latest }}"
+          echo "  Caddy:   ${{ steps.current.outputs.caddy }} → ${{ steps.latest.outputs.caddy }}"
+          echo "  Route53: ${{ steps.current.outputs.route53 }} → ${{ steps.latest.outputs.route53 }}"
           echo ""
-          if [ "${{ steps.caddy.outputs.latest }}" != "${{ steps.current.outputs.current }}" ]; then
-            echo "update_needed=true" >> $GITHUB_OUTPUT
-            echo "✅ New version detected: ${{ steps.caddy.outputs.latest }}"
-            echo "   Will update and trigger build"
-          else
-            echo "update_needed=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  Already on latest version"
+
+          CHANGED=()
+          if [ "${{ steps.latest.outputs.caddy }}" != "${{ steps.current.outputs.caddy }}" ]; then
+            CHANGED+=("caddy")
+            echo "✅ Caddy version changed: ${{ steps.current.outputs.caddy }} → ${{ steps.latest.outputs.caddy }}"
           fi
 
-      - name: Update version file
+          if [ "${{ steps.latest.outputs.route53 }}" != "${{ steps.current.outputs.route53 }}" ]; then
+            CHANGED+=("route53")
+            echo "✅ Route53 plugin version changed: ${{ steps.current.outputs.route53 }} → ${{ steps.latest.outputs.route53 }}"
+          fi
+
+          if [ ${#CHANGED[@]} -gt 0 ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            # Convert array to JSON array format
+            CHANGED_JSON=$(printf '%s\n' "${CHANGED[@]}" | jq -R . | jq -s .)
+            echo "changed=$CHANGED_JSON" >> $GITHUB_OUTPUT
+            echo ""
+            echo "Will update versions.json and trigger build"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "changed=[]" >> $GITHUB_OUTPUT
+            echo "ℹ️  All versions are up to date"
+          fi
+
+      - name: Update versions file
         if: steps.compare.outputs.update_needed == 'true'
         run: |
-          echo "${{ steps.caddy.outputs.latest }}" > VERSION
+          # Create updated versions.json with current timestamp
+          cat > versions.json << EOF
+          {
+            "caddy": "${{ steps.latest.outputs.caddy }}",
+            "route53": "${{ steps.latest.outputs.route53 }}",
+            "last_checked": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "changed": ${{ steps.compare.outputs.changed }}
+          }
+          EOF
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add VERSION
-          git commit -m "Update Caddy version to ${{ steps.caddy.outputs.latest }}"
+          git add versions.json
+          git commit -m "Update versions: Caddy ${{ steps.latest.outputs.caddy }}, Route53 ${{ steps.latest.outputs.route53 }}"
           git push
 
       - name: Trigger Docker build
@@ -66,5 +100,5 @@ jobs:
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: caddy-update
-          client-payload: '{"version": "${{ steps.caddy.outputs.latest }}"}'
+          event-type: version-update
+          client-payload: '{"caddy": "${{ steps.latest.outputs.caddy }}", "route53": "${{ steps.latest.outputs.route53 }}", "changed": ${{ steps.compare.outputs.changed }}}'
