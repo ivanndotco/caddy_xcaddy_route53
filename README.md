@@ -4,14 +4,21 @@ Docker image with Caddy web server and Route53 DNS plugin for automatic HTTPS vi
 
 ## Why This Exists
 
-> Hi! As a lazy person who always tries to get things done as quickly as possible, I really love using ready-made containers.
-> It's awesome when you can just pull an image and start using it — no setup, no headache.
-> But sometimes I still needed to build custom Caddy images with specific plugins, and that got annoying.
+>Hi!
+>I’ll probably rewrite this part a few more times, so make sure you’re using the latest version of the repo.
 >
-> So I decided to automate it — a simple setup that builds Caddy with the plugins I usually use in my projects.
-> Now it's here to help other lazy people like me save time and skip the manual builds.
+>As someone who loves doing things fast, I prefer using ready-to-go containers instead of building them from scratch.
+>This time, it’s my turn to help others do things faster — without any builds.
 >
-> — **Ivann.co**
+>Here you’ll find an automated setup that explains everything clearly, includes usage samples, and works right out of the box.
+>
+>To be honest, I built it first and only then realized that similar solutions already exist — but I’ll try to make this one better.
+>The repo includes all the samples and recommendations you need for a full understanding of how to use it.
+>
+>And the best part? It’s fully automated.
+>So even if I stop using it (or, you know, die 😅), the containers should keep updating — assuming GitHub doesn’t delete my account!
+>
+> — **IvanN.co**
 
 ## Features
 
@@ -105,20 +112,20 @@ Create IAM user or role with Route53 permissions:
 {
   "Version": "2012-10-17",
   "Statement": [
-    {
-      "Effect": "Allow",
+    { "Effect": "Allow",
       "Action": [
         "route53:ListHostedZones",
+        "route53:ListHostedZonesByName",
         "route53:GetChange"
       ],
       "Resource": "*"
     },
-    {
-      "Effect": "Allow",
+    { "Effect": "Allow",
       "Action": [
+        "route53:ListResourceRecordSets",
         "route53:ChangeResourceRecordSets"
       ],
-      "Resource": "arn:aws:route53:::hostedzone/*"
+      "Resource": "arn:aws:route53:::hostedzone/ZONEID_OF_krusche_cloud"
     }
   ]
 }
@@ -274,11 +281,12 @@ docker-compose exec caddy caddy validate --config /etc/caddy/Caddyfile
 2. Check IAM permissions for Route53
 3. Ensure domain DNS uses Route53
 4. Check logs: `docker-compose logs caddy`
+5. Use GPTs to analyze the logs from step 4.
 
 ### Cannot Connect to Domain
 
 1. Verify DNS records point to your server: `dig example.com`
-2. Check firewall allows ports 80, 443
+2. Check firewall allows ports 80, 443 (If the server is private, make sure you can access these resources somehow (like VPN). Ports 80 and 443 do not need to be open to the world, but they should work for you.
 3. Wait for DNS propagation (up to 48 hours)
 
 ### Backend Connection Error
