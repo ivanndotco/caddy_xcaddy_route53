@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -99,3 +99,29 @@ jobs:
           build-args: |
             CADDY_VERSION=${{ steps.versions.outputs.caddy_clean }}
             ROUTE53_VERSION=${{ steps.versions.outputs.route53 }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: caddy-${{ steps.versions.outputs.caddy }}-route53-${{ steps.versions.outputs.route53 }}
+          name: "Caddy ${{ steps.versions.outputs.caddy }} + Route53 ${{ steps.versions.outputs.route53 }}"
+          make_latest: true
+          body: |
+            ## Caddy with Route53 DNS Plugin
+
+            | Component | Version |
+            |-----------|---------|
+            | Caddy | `${{ steps.versions.outputs.caddy }}` |
+            | caddy-dns/route53 | `${{ steps.versions.outputs.route53 }}` |
+
+            ## Pull the image
+
+            ```bash
+            # Latest
+            docker pull ghcr.io/${{ github.repository }}:latest
+
+            # Specific versions
+            docker pull ghcr.io/${{ github.repository }}:caddy-${{ steps.versions.outputs.caddy_clean }}-route53-${{ steps.versions.outputs.route53_clean }}
+            docker pull ghcr.io/${{ github.repository }}:c${{ steps.versions.outputs.caddy_clean }}-r${{ steps.versions.outputs.route53_clean }}
+            ```
