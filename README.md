@@ -34,7 +34,7 @@ Docker image with Caddy web server and Route53 DNS plugin for automatic HTTPS vi
 ### Pull the Image
 
 ```bash
-docker pull ivannco/caddy_xcaddy_route53:latest
+docker pull ghcr.io/ivanndotco/caddy_xcaddy_route53:latest
 ```
 
 ### Run with Docker
@@ -49,7 +49,7 @@ docker run -d \
   -e AWS_REGION=us-east-1 \
   -v $PWD/Caddyfile:/etc/caddy/Caddyfile \
   -v caddy_data:/data \
-  ivannco/caddy_xcaddy_route53:latest
+  ghcr.io/ivanndotco/caddy_xcaddy_route53:latest
 ```
 
 ### Run with Docker Compose
@@ -224,7 +224,7 @@ version: '3.8'
 
 services:
   caddy:
-    image: ivannco/caddy_xcaddy_route53:latest
+    image: ghcr.io/ivanndotco/caddy_xcaddy_route53:latest
     restart: unless-stopped
     ports:
       - "80:80"
