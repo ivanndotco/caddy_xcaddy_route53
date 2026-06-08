@@ -1,6 +1,6 @@
 {
-  "caddy": "v2.11.3",
+  "caddy": "v2.11.4",
   "route53": "v1.6.2",
-  "last_checked": "2026-06-01T06:49:15Z",
-  "changed": []
+  "last_checked": "2026-06-08T06:37:29Z",
+  "changed": ["caddy"]
 }
